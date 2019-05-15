@@ -1,0 +1,61 @@
+\documentclass[12pt,a4paper,twoside,openright]{report}
+\input{include/settings/Settings}
+
+\newcommand{\oneLineTitle}{Design and implementation of an LTI-compatible infrastructure for running automatic checks}
+\newcommand{\multiLineTitle}[1]{Design and implementation of an\\[#1] LTI-compatible infrastructure for\\[#1]running automatic checks}
+
+% The term [#1] indicates that there will be 1 linebreak to split the title into two pieces, first part before \\[#1] and second part after. If you have a very long title and need to split it up into 3 rows, just use \\[#1] multiple times.
+
+\newcommand{\oneLineSubtitle}{A Subtitle that can be Very Much Longer if Necessary}
+
+\begin{document} 
+
+\pagenumbering{roman} % Roman numbering (starting with i (one)) until first main chapter
+\input{include/frontmatter/Titlepage}
+
+\newpage
+\input{include/frontmatter/Abstract}
+
+\newpage
+\input{include/frontmatter/Acknowledgements}
+
+\newpage
+\tableofcontents
+
+% List of figures (add to table of contents)
+%\cleardoublepage
+%\addcontentsline{toc}{chapter}{\listfigurename} 
+%\listoffigures
+% List of tables (add to table of contents)
+%\cleardoublepage
+%\addcontentsline{toc}{chapter}{\listtablename}  
+%\listoftables
+
+\cleardoublepage
+\setcounter{page}{1}
+\pagenumbering{arabic} % Arabic numbering starting from 1 (one)
+\setlength{\parskip}{\baselineskip}
+\titlespacing\section{0pt}{0em}{-.5em}\relax
+\titlespacing\subsection{0pt}{0em}{-.5em}\relax
+\titlespacing\subsubsection{0pt}{0em}{-.5em}\relax
+%\setlength{\parskip}{1em}
+%\setlength{\parskip}{\baselineskip}
+
+\input{include/Introduction}
+\input{include/Background}
+\input{include/Implementation}
+\input{include/Results}
+\input{include/Conclusion}
+
+\cleardoublepage
+\addcontentsline{toc}{chapter}{Bibliography}
+\input{include/backmatter/References}
+
+\cleardoublepage
+\appendix
+\setcounter{page}{1}
+\pagenumbering{Roman} % Capitalized roman numbering starting from I (one)
+
+\input{include/backmatter/Appendix_1}
+
+\end{document}

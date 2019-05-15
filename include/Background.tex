@@ -1,0 +1,147 @@
+\chapter{Background}
+
+\section{Learning Tools Interoperability (LTI)}
+%TODO add source https://www.imsglobal.org/activity/learning-tools-interoperability
+Learning Tools Interoperability (LTI) is a standard defined by IMS Global that defines how to connect learning applications with external learning tools~\cite{OleksandrA.2015LearningPlatforms}.
+
+The LTI standard defines communication between two parts, the Tool Consumer (TC) and the Tool Provider (TP). The consumer is normally, but not necessarily, a Learning Management System (LMS) and the provider can be any type of service that implements the necessary LTI functionality.
+
+\label{ensuring_integrity}
+\subsection{Ensuring integrity and asserting identity: OAuth}
+The LTI standard uses OAuth 1 as a signing mechanism to ensure integrity in communication between consumer and provider~\cite{2019IsRequest}. The setup for this is both parties agreeing on a key and a secret. The key is used by the provider to determine what consumer it is talking to. The secret is used to calculate a signature by encoding and hashing sent parameters, LTI currently only supports HMAC-SHA1). If both signatures, calculated by consumer and provider are equal, the communication has not been tampered with and integrity is ensured.
+
+In detail, signature calculation is achieved in several steps:
+\begin{enumerate}[itemsep=0pt,topsep=0pt]
+    \item Removing oauth\_signature from the parameters
+    \item URL-encoding the \textit{already encoded} values (causing them to be double encoded)
+    \item Sorting the key/value pairs
+    \item Joining them with \&
+    \item Encoding the values again, yielding a string
+    \item Running HMAC-SHA1 on the string using the secret key
+\end{enumerate}
+
+Communication between consumer and provider begins by the consumer sending a POST request to the provider via a \textit{Launch URL} with launch parameters -- a set of parameters defined by the LTI standard -- that provides the provider with consumer specific metadata, the current consumer user (identity), course, etc.
+
+Because of the ensured integrity, one can trust the sent identity. This means that the provider then does not need any authentication logic itself. It can create a user session backed by a cookie and store the sent identity data such as the user id without having to verify it in the future. % todo rewrite this
+
+\subsection{Grading}
+
+Version 1.1 adds the ability for a provider to send back a grade (0.0-1.0) to the consumer through an endpoint defined in a launch parameter.
+
+To send back the grade, the provider responds with an XML payload with information regarding the grade, the assignment, etc. % todo Fact check this
+
+% TODO Brief introduction to what the External tool a.k.a. Tool Provider is
+
+\subsection{Learning Management System: Canvas}
+
+% Canvas is a cloud-based learning management system that makes teaching and learning easier. rephrase this
+
+Canvas is a web-based learning management system developed/created/released by Instructure, Inc. They provide a hosted version running on Amazon AWS, but Canvas is also open-source enabling anyone to set up a self-hosted version. It was developed to be extensible (source?) and provides an extensive API as well as LTI support.
+
+The combination of open-source and LTI support makes Canvas an ideal testing ground for LTI application development. However, since the LTI specification is intentionally light-weight to facilitate adoption, Canvas comes with some additional "extension" parameters. These parameters provide more detailed information than what the LTI spec mandates. In order to maintain compatibility with other LMSs, this Canvas-specific data should only be used for optional features and never be expected.  
+
+\section{Browser security: X-Frame-Options, HTTPS}
+
+Frame options, SSL, etc
+
+\section{Distributed computation: The actor model}
+
+% todo should we specify that our system needs this, or is it obvious?
+
+Blabla need for concurrent and distributed programming.
+
+Worker threads, the system should be designed to theoretically be able to handle an enormous amount of workers.
+
+The traditional way of doing concurrent computation is by running multiple threads and have them write to shared memory to communicate. It is certainly fast but has huge costs by being complicated, error-prone because the need for locks, and scale badly because of thread creation. % todo needs clarification, and source
+
+One more efficient way of achieving concurrent computation is utilizing the actor model. % todo source
+
+One great benefit is that the actor model utilizes message passing, which by running actors on different hosts, gives us distributed computation.
+
+There are multiple languages and/or frameworks that is built around the actor model, three of which are the most widely used: Akka -- a toolkit for running the actor model in the JVM (Java, Scala, ...), Erlang -- an immutable functional programming language with an underlying runtime system that enables communication over networks, making it highly distributed, and Elixir, which actually builds on top of Erlang, but introduces a more conventional syntax with support for macros and polymorphism together with solid tooling such as package management, a default testing suite, code formatting and remote debugging.
+
+% todo clarify what the JVM is?
+
+% Why not Akka? What's wrong with the JVM?
+
+Because Erlang and Elixir both run on the Beam VM, which is designed for highly distributed and fault-tolerant systems, they perform equally better than Akka. % todo source
+
+%\section{Distribution in Erlang}
+
+\section{Submission test configuration: DSL}
+
+Talk about YAML being used wrongly
+
+For the reasons stated above (TODO :PPP) writing a DSL in Elixir seems good.
+
+\label{dsl_elixir}
+\subsection{DSL in Elixir}
+All code written in Elixir is represented by a combination of seven different elements. These elements are atoms (explain), integers, floats, strings, lists and tuples with two or three elements. The last one, tuples with three elements, is used to represent all other language constructs that are not one of the other six elements. The following call: div(4, 2) would be represented by the tuple: \{:div, meta, [4, 2]\}, where the first element is the function name, the second a list containing metadata (e.g. line numbers) and the third a list of parameters. Since module definitions, functions and even blocks of code are represented by this tuple any code that isn't just a one-liner will consist of nested tuples (see listing~\ref{ast_listing}). This type of representation is called a \textit{quoted expression} in Elixir, but is more generally known as an Abstract Syntax Tree (AST).
+
+Elixir provides a number of functions for converting strings to ASTs and vice versa. Using this built-in functionality to transform code to ASTs serves as a great platform for constructing a DSL. The scope of what is considered valid syntax is also quite wide, giving some freedom when defining the DSL syntax. Additionally, syntax validation is essentially built in, since the conversion functions return descriptive errors when invalid code is passed to it. Handling code that is correct but doesn't adhere to the DSL definitions is facilitated by the metadata contained in all AST nodes, making it possible to provide helpful error messages.  
+
+Something about how our DSL is not compiled or interpreted, i.e. the code won't ever run, it only serves to transform: DSL -> AST -> Config and commands.
+
+\label{ast_listing}
+\begin{listing}
+\begin{minted}{elixir}
+def hello() do
+    IO.puts("Hello!")
+end
+
+===>
+
+{:def, [line: 1],
+ [
+   {:hello, [line: 1], []},
+   [
+     do: {{:., [line: 2],
+       [
+         {:__aliases__, [line: 2],
+          [:IO]},
+         :puts
+       ]}, [line: 2], ["Hello!"]}
+   ]
+ ]}
+\end{minted}
+\caption{Example of code to AST transformation}
+\label{ast_listing}
+\end{listing}
+
+DSL? Yaml? Dockerfile?
+Interface till DSL? Textruta?
+
+
+
+\section{Malicious submissions: decompression bombs}
+
+Students should be able to upload their submissions in archives (eg. zip, tar.gz, ...). The archives are then decompressed on the server to examine the contents. Doing this can mean trouble if a student has created a malicious archive. One way of creating a malicious archive is to create a compression bomb. ``A decompression bomb is a file designed to crash or render useless the program or system reading it, i.e. a denial of service.''~\cite{Bomb.codes}
+
+\subsection*{Mitigation strategies}
+
+There are different ways of mitigating decompression bomb attacks. A layered approach is seen as the best:
+
+``To effectively mitigate decompression bomb attacks, a layered defense is the best approach. Implementing various checks and restrictions for application and processes will ensure that the attack is stopped before any lasting damage can occur.''~\cite{Bomb.codes}
+
+\subsubsection*{Defense layer 1}
+
+Server-side checks. Check file format and upload size of the archive file.
+
+\section{Application containers: Docker}
+
+% Small introduction to Docker
+
+There are lots of container techniques, one is Docker, which is the most popular solution. % todo fix this sentence
+
+''Docker is a tool that allows developers, sys-admins etc. to easily deploy their applications in a sandbox (called containers) to run on the host operating system i.e. Linux. The key benefit of Docker is that it allows users to package an application with all of its dependencies into a standardized unit for software development. Unlike virtual machines, containers do not have the high overhead and hence enable more efficient usage of the underlying system and resources.''~\cite{2019ABeginners}
+
+% https://docker-curriculum.com/
+
+Docker can be controlled remotely over HTTP via its Docker Engine API~\footnote{https://docs.docker.com/engine/api/latest/}. The API covers the full functionality of Docker, allowing developers to build, create and run Docker containers on a remote Docker host. 
+
+It is possible to query both running and stopped containers for information. This is useful to for example determine the exit code of a container process. There is also support for \textit{streaming} various information, such as the standard input, output and error streams from a process in a running container. This allows developers to follow the progress of the running process.
+
+\section{Streaming workers' output}
+
+Back pressure, buffers etc.
+
