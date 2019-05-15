@@ -1,0 +1,122 @@
+/* This file is for your main application css. */
+
+/* @import "./phoenix.css"; */
+@import "./main-container.css";
+
+:root {
+  --pre-file-size: 0.9em;
+  --pre-line-height: 1rem;
+}
+
+body {
+  padding: 1rem;
+}
+
+body.iframe {
+  padding: 0 2px;
+}
+
+pre {
+  margin: 0;
+  overflow: auto;
+  max-height: 480px;
+  font-size: var(--pre-file-size);
+  line-height: var(--pre-line-height);
+}
+
+pre code div {
+  padding: 0 0.5rem;
+  position: relative;
+}
+
+pre code div::before {
+  position: absolute;
+  display: block;
+  content: "";
+  margin-left: -1em;
+}
+
+pre code div.init::before {
+  color: #0069d9;
+  content: "•";
+}
+
+pre code div.text::before {
+  color: #ccc;
+  content: ">";
+}
+
+pre code div.done::before {
+  color: #00d900;
+  content: "✓";
+}
+
+pre code div.error::before {
+  color: #bb2828;
+  content: "✗";
+}
+
+.file .header > .icon {
+  font-size: 1em;
+}
+
+.file .header.added > .icon {
+  color: #6abb28;
+}
+
+.file .header.removed > .icon {
+  color: #bb2828;
+}
+
+.file .header.changed > .icon {
+  color: #284abb;
+}
+
+.file {
+  margin-bottom: 1rem;
+}
+
+.file pre .add {
+  background: #e6ffed;
+}
+
+.file pre .del {
+  background: #ffeef0;
+}
+
+#code_validation_output .icon.check {
+  color: #6abb28;
+}
+
+#code_validation_output .icon.exclamation {
+  color: #bb2828;
+}
+
+.submissions {
+  padding: 1rem;
+}
+
+#code-editor {
+  height: 20rem;
+  border: 1px solid rgba(34, 36, 38, 0.15);
+  border-radius: 0.28571429rem;
+}
+
+#code-editor textarea {
+  resize: none;
+  border: none;
+  background: none;
+  color: none;
+  /* width: 0 !important; */
+  min-height: 0;
+  padding: 0;
+}
+
+pre#log {
+  padding-left: 0.5rem;
+}
+
+.file pre.segment {
+  font-size: var(--pre-file-size);
+  line-height: var(--pre-line-height);
+}

@@ -1,0 +1,28 @@
+<h2>Configure assignment: <%= @assignment.name %></h2>
+<div class="ui grid">
+  <div class="four wide column">
+    <div class="ui vertical pointing fluid menu">
+      <a class="active item" href="<%= Routes.assignment_path(@conn, :index, @assignment.id) %>">
+        Configure
+      </a>
+      <a class="item" href="<%= Routes.submission_path(@conn, :index, @assignment.id) %>">
+        Go to submission page
+      </a>
+    </div>
+  </div>
+  <div class="ui twelve wide column form">
+    <%= form_for @conn, Routes.assignment_path(@conn, :submit, @assignment.id), [id: "configuration-form"], fn f -> %>
+      <div class="field">
+        <label>Configuration</label>
+        <div id="code-editor"></div>
+      </div>
+      <div class="field" id="code_validation_output">
+        <i class="icon check"></i> <span class="text">Valid configuration</span>
+      </div>
+      <%= hidden_input(f, :dsl, value: @configuration && @configuration.code || "") %>
+      <div class="field">
+        <%= submit "Save", class: "ui button" %>
+      </div>
+    <% end %>
+  </div>
+</div>
