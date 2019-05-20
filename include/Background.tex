@@ -76,7 +76,7 @@ For the reasons stated above (TODO :PPP) writing a DSL in Elixir seems good.
 
 \label{dsl_elixir}
 \subsection{DSL in Elixir}
-All code written in Elixir is represented by a combination of seven different elements. These elements are atoms (explain), integers, floats, strings, lists and tuples with two or three elements. The last one, tuples with three elements, is used to represent all other language constructs that are not one of the other six elements. The following call: div(4, 2) would be represented by the tuple: \{:div, meta, [4, 2]\}, where the first element is the function name, the second a list containing metadata (e.g. line numbers) and the third a list of parameters. Since module definitions, functions and even blocks of code are represented by this tuple any code that isn't just a one-liner will consist of nested tuples (see listing~\ref{ast_listing}). This type of representation is called a \textit{quoted expression} in Elixir, but is more generally known as an Abstract Syntax Tree (AST).
+All code written in Elixir is represented by a combination of seven different elements. These elements are atoms~\cite{BasicElixir} (a constant whose name is its own value), integers, floats, strings, lists and tuples with two or three elements. The last one, tuples with three elements, is used to represent all other language constructs that are not one of the other six elements. The following call: div(4, 2) would be represented by the tuple: \{:div, meta, [4, 2]\}, where the first element is the function name (as an atom), the second a list containing metadata (e.g. line numbers) and the third a list of parameters. Since module definitions, functions and even blocks of code are represented by this tuple any code that isn't just a one-liner will consist of nested tuples (see listing~\ref{ast_listing}). This type of representation is called a \textit{quoted expression} in Elixir, but is more generally known as an Abstract Syntax Tree (AST).
 
 Elixir provides a number of functions for converting strings to ASTs and vice versa. Using this built-in functionality to transform code to ASTs serves as a great platform for constructing a DSL. The scope of what is considered valid syntax is also quite wide, giving some freedom when defining the DSL syntax. Additionally, syntax validation is essentially built in, since the conversion functions return descriptive errors when invalid code is passed to it. Handling code that is correct but doesn't adhere to the DSL definitions is facilitated by the metadata contained in all AST nodes, making it possible to provide helpful error messages.  
 
@@ -114,6 +114,7 @@ Interface till DSL? Textruta?
 
 
 \section{Malicious submissions: decompression bombs}
+\label{decompression_bombs}
 
 Students should be able to upload their submissions in archives (eg. zip, tar.gz, ...). The archives are then decompressed on the server to examine the contents. Doing this can mean trouble if a student has created a malicious archive. One way of creating a malicious archive is to create a compression bomb. ``A decompression bomb is a file designed to crash or render useless the program or system reading it, i.e. a denial of service.''~\cite{Bomb.codes}
 
@@ -125,7 +126,16 @@ There are different ways of mitigating decompression bomb attacks. A layered app
 
 \subsubsection*{Defense layer 1}
 
-Server-side checks. Check file format and upload size of the archive file.
+Implement simple server-side checks where you check the format and upload size of the archive file.
+
+\subsubsection*{Defense layer 2}
+\label{defense_layer_2}
+
+Limit the resources used by the process responsible to decompress the archive. This can be done by running the process in a sandbox, where its restricted in disk usage, process time and memory usage.
+
+\subsubsection*{Defense layer 3}
+
+Restrict the total decompressed file size.
 
 \section{Application containers: Docker}
 
