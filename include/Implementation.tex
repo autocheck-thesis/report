@@ -2,7 +2,7 @@
 
 Brief introduction...
 
-\section{Phoenix Framework}
+\section{Phoenix}
 
 Because of the choice of using Elixir, we had the opportunity to use the widely popular web framework Phoenix~\cite{Phoenix}. It is the \textit{de facto} standard Elixir library for developing websites. It is built upon simple constructs and does not have many moving parts. It is extensible using plugs -- a kind of per-connection middleware. Plugs are configured to be run on specific routes and they are used to handle everything from header verification and authentication to file uploads.
 
@@ -10,88 +10,22 @@ Because of the choice of using Elixir, we had the opportunity to use the widely 
 
 We must verify LTI launch requests as described in section \ref{ensuring_integrity}. To achieve this we found the open source plug 'plug\_lti'. The library had the required functionality we wanted but was erroneously implemented by presuming that the sent parameters were encoded as 'x-www-form-urlencoded', causing any space character to be encoded as a plus symbol. This caused the OAuth signature to be invalid, making every attempt at launching our LTI application fail. We fixed this by forking the library and replacing the encoding function, and using said fork in our Phoenix project.
 
-As the library is implemented as a plug, it can be used in any context where plugs are supported in Phoenix -- both in router scopes and directly in controllers. We use it directly in our index controller, which acts as our LTI entrypoint (see plug directive in figure \ref{pluglti_listing}). The launch action in the controller is then responsible to redirect the user to the appropriate route according to launch parameters that we now can trust because of the verification, such as the user role or the assignment id.
+As the library is implemented as a plug, it can be used in any context where plugs are supported in Phoenix -- both in router scopes and directly in controllers. We use it directly in our index controller, which acts as our LTI entrypoint (see plug directive in Listing \ref{pluglti_listing}). The launch action in the controller is then responsible to redirect the user to the appropriate route according to launch parameters that we now can trust because of the verification, such as the user role or the assignment id.
+
+\begin{listing}
+    \inputminted[firstline=8,lastline=27]{elixir}{code/server/lib/thesis_web/controllers/index_controller.ex}
+    \caption{Excerpt of \textbf{index\_controller.ex}. The launch action is protected by the LTI verification plug.}
+    \label{pluglti_listing}
+\end{listing}
 
 \section{Assignment creation}
 
-\label{pluglti_listing}
-\begin{listing}
-\begin{minted}{elixir}
-defmodule ThesisWeb.IndexController do
-  use ThesisWeb, :controller
+Assignments are created upon receiving an LTI launch request. Since we can trust any data sent in the request, we use the sent ext\_lti\_assignment\_id as our assignment id (see Listing~\ref{pluglti_listing}). Every assignment is unique and have their specific requirements, tests to run, file formats, etc. Because of this, every assignment has their own unique configuration.
 
-  plug PlugLti when action in [:launch]
-  
-  def launch(
-        conn,
-        %{
-          "user_id" => lti_user_id,
-          "roles" => roles,
-          "ext_lti_assignment_id" => assignment_id,
-          "resource_link_title" => assignment_name
-        } = _params
-      ) do
-    with {:ok, user} <-
-            Thesis.Repo.get_or_insert(
-              Thesis.User,
-              %{lti_user_id: lti_user_id}
-            ),
-          {:ok, assignment} <-
-            Thesis.Repo.get_or_insert(
-              Thesis.Assignment,
-              %{id: assignment_id, name: assignment_name}
-            ) do
-      role = determine_role(roles)
-  
-      conn
-      |> put_session(:user, user)
-      |> put_session(:role, role)
-      |> redirect_user(role, assignment)
-    else
-      error -> raise error
-    end
-  end
-  
-  # ...
-  
-end
-\end{minted}
-\caption{Index controller having its launch action protected by the LTI verification plug.}
-\end{listing}
+\subsection{Configuration}
+One of the stated goals of this project was to lower the barrier of entry for teachers who want to set up automatic assignment testing for their courses. A key aspect to achieve this is test configuration. In order to decrease the amount of boilerplate written and facilitate a robust testing flow, we decided to design our own DSL. The intention was to create a language tailored specifically for this task, and implemented in Elixir, as described in Section \ref{dsl_elixir}.
 
-% todo should we talk about how we updated the plug? Is it even interesting?
-
-\section{Student submissions}
-
-We must be able to accept student submissions, and make sure that a code runner is able to run tests on said submissions.
-
-\subsection{Handling file uploads}
-
-To handle file uploads we thought of a few different approaches.
-
-We can either handle uploads ourselves or have the upload form talk either directly or indirectly with some blob storage service such as S3, Google Cloud Storage or Azure Storage. If we handle it indirectly, we let the file data bounce on our server, but the resulting storage location would be the same.
-
-Handling the uploads ourselves is easy, as we can rely on Plug.Upload, which stores any uploaded file in a temporary directory and appends a struct with file details to the post parameters in a controller action. The biggest problem with handling the uploads ourselves is that anyone running the system would be required to monitor the storage usage and know how to increase the storage capacity.
-
-The files can either be stored directly on disk, or indirectly in the database which can be running on a different host entirely, having its own storage.
-
-Because of the scope of the project, we decide to store the submissions on disk, on our server. In a production environment, we would recommend using a blob storage service such as the ones mentioned above.
-
-\subsubsection{Access control}
-
-% todo better wording
-Having the files publicly available to the Internet would not be good. This requires some kind of access control. We thought of a few different ways of handling this.
-
-One way is to restrict access to specific hosts on a network level. If we restrict the access to only let the code runner Docker instance tasked to run the tests specific to a submission download we would have to trust the provided submission code. The submission code could theoretically download any other submission files on our server.
-
-The other way is to restrict access to the submission files by requiring an authentication token, generated upon starting a code runner. This makes sure that a code runner, tasked with running tests on a specific submission, can only download that submission.
-
-If a blob storage service is used, it can most likely be configured to only allow access to clients providing the authentication token.
-
-\section{DSL}
-One of the stated goals of this project was to lower the barrier of entry for teachers who want to set up automatic assignment testing for their courses. One key aspect for/to/when achieving this is test configuration. In order to decrease the amount of boilerplate written and facilitate a robust testing flow, we decided to design our own DSL. The intention was to create a language tailored specifically for this task, and implemented in Elixir, as described in section \ref{dsl_elixir}.
-
-Listing \ref{dsl_listing} showcases an example configuration defined with our DSL. At the top.....
+Listing \ref{dsl_listing} showcases an example configuration defined with our DSL. All configurations consist of two different types of constructs, fields and steps. Fields, like \textit{@environment} and \textit{@require\_files}, are prefixed by an @-sign and define ''things'' that has to be true for the assignment, in this case environment configuration and file validation. Steps define the different stages of testing and are transformed into command line instructions that will be executed in the order they are specified.  
 
 \begin{listing}
 \begin{minted}{elixir}
@@ -113,34 +47,102 @@ step "format all code" do
 	#cmd "mix formatter ./**/*.{ex,exs}"
 	format_code
 end
-
-test "check status code" do
-	cmd "mix -S #{}
 \end{minted}
-\caption{Example DSL configuration}
+\caption{Example DSL configuration.}
 \label{dsl_listing}
 \end{listing}
 
+Configuring an assignment should be easy for teachers. To decrease the trial and error needed to write a correct configuration, we added \emph{live validation} to the configuration editor. We did this by exposing the parser in the assignment controller (see Listing ~\ref{lst:configuration_validation_listing}) and showing the results directly in the editor (see screenshot in Figure~\ref{fig:editor_screenshot}). The parser is executed in an Elixir Task, which spawns a function in a new process. We also set a time limit on the parser mitigating denial of service attacks against the parser.
+
+\begin{listing}
+    \inputminted[firstline=29,lastline=36]{elixir}{code/server/lib/thesis_web/controllers/assignment_controller.ex}
+    \caption{Excerpt of \textbf{assignment\_controller.ex}. The validate\_configuration action responds with validation results.}
+    \label{lst:configuration_validation_listing}
+\end{listing}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\textwidth]{figure/screenshot_editor.png}
+    \caption{Screenshot of a validation error in the configuration editor}
+    \label{fig:editor_screenshot}
+\end{figure}
+
+% todo should we talk about how we updated the plug? Is it even interesting?
+
+\section{Student submissions}
+
+We must be able to accept student submissions, and make sure that a code runner is able to run tests on said submissions.
+
+\subsection{Handling file uploads}
+
+To handle file uploads we thought of a few different approaches.
+
+We can either handle uploads ourselves or have the upload form talk either directly or indirectly with some blob storage service such as S3, Google Cloud Storage or Azure Storage. If we handle it indirectly, we let the file data bounce on our server, but the resulting storage location would be the same.
+
+Handling the uploads ourselves is easy, as we can rely on Plug.Upload, which stores any uploaded file in a temporary directory and appends a struct with file details to the post parameters in a controller action. The biggest problem with handling the uploads ourselves is that anyone running the system would be required to monitor the storage usage and know how to increase the storage capacity.
+
+The files can either be stored directly on disk, or indirectly in the database which can be running on a different host entirely, having its own storage.
+
+Because of the scope of the project, we decide to store the submissions in the database. In a production environment, we would recommend using a blob storage service such as the ones mentioned above.
+
+\subsubsection*{Decompressing uploaded archives}
+
+As the submissions are most likely uploaded in archives, we have to decompress them on our server. This comes with some risks (see Section~\ref{decompression_bombs}). We implement the necessary defense layers in the following ways:
+
+First, we limit the upload size to 550 MB in our endpoint (see Listing ~\ref{lst:parsers_upload_limit}). We then check the file format in our submission controller (see Listing ~\ref{lst:upload_file_format_check}).
+
+If the file format check yields us an archive, we decompress it in a new process and limit memory by setting the process flag \emph{max\_heap\_size} to 2~600~000 words and limit decompression time to 60 seconds by having a \emph{receive timeout} (see Listing~\ref{lst:decompression_limit}).
+
+\begin{listing}
+    \inputminted[firstline=43,lastline=46]{elixir}{code/server/lib/thesis_web/endpoint.ex}
+    \caption{Excerpt of \textbf{endpoint.ex}. File upload size is limited.}
+    \label{lst:parsers_upload_limit}
+\end{listing}
+
+\begin{listing}
+    \inputminted[firstline=73,lastline=82]{elixir}{code/server/lib/thesis_web/controllers/submission_controller.ex}
+    \caption{Excerpt of \textbf{submission\_controller.ex}. File format is checked.}
+    \label{lst:upload_file_format_check}
+\end{listing}
+
+\begin{listing}
+    \inputminted[firstline=77,lastline=100]{elixir}{code/server/lib/thesis/extractor.ex}
+    \caption{Excerpt of \textbf{extractor.ex}. Decompression is done in a separate process with a maximum heap size set.}
+    \label{lst:decompression_limit}
+\end{listing}
+
+\subsubsection*{Access control}
+
+% todo better wording
+Having the files publicly available to the Internet would not be good. This requires some kind of access control. We thought of a few different ways of handling this.
+
+One way is to restrict access to specific hosts on a network level. If we restrict the access to only let the Docker instance tasked to run the tests specific to a submission download, we would have to trust the provided submission code. The submission code could theoretically download any other submission files on our server.
+
+The other way is to restrict access to the submission files by requiring an authentication token, generated upon starting a code runner. This makes sure that a code runner, tasked with running tests on a specific submission, can only download that submission.
+
+If a blob storage service is used, it can most likely be configured to only allow access to clients providing the authentication token.
+
+\newpage
 \section{Deployment}
 
 When deploying our project for production, we must change couple of things. Even though there are deployment infrastructure such as Heroku~\cite{CloudHeroku} or Dokku~\cite{DokkuSeen}, which automatically figures out the build environment, we are required to set up three things in the build process:
 
 \begin{enumerate}
-\item Handle of the application secrets through environment variables
-\item Compile the application assets
-\item Configure how to start the server in production
+    \item Handle the application secrets through environment variables
+    \item Compile the application assets
+    \item Configure how to start the server in production
 \end{enumerate}
 
 \subsection{Application secrets}
 
 The project has application secrets such as username and password to the database, secret key base used in cryptographic operations and certificates used in communication with the Docker daemon. These are hard-coded values when in an development environment, but have to be handled with care in production.
 
-You are able to hard-code secrets in production too, but it comes with risks such as a developer publishing the configuration accidentally to Git. Therefore, injecting them via environment variables is the preferred way. How this is done can be seen in listing~\ref{configure_env_variables}.
+You are able to hard-code secrets in production too, but it comes with risks such as a developer publishing the configuration accidentally to Git. Therefore, injecting them via environment variables is the preferred way. This can be done by a shell script (see listing~\ref{configure_env_variables} for example).
 
 \begin{listing}
-\inputminted{bash}{code/env.sh}
-\caption{Exporting environment variables used by the production application}
-\label{configure_env_variables}
+    \inputminted{bash}{code/env.sh}
+    \caption{Exporting example environment variables to be used by the application.}
+    \label{configure_env_variables}
 \end{listing}
 
 We are also able to build deployment artifacts using Distillery~\cite{HomeDocumentation}.
