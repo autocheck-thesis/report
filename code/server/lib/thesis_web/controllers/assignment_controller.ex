@@ -8,9 +8,10 @@ defmodule ThesisWeb.AssignmentController do
     assignment = Assignments.get!(assignment_id)
 
     configuration =
-      case Assignments.get_latest_configuration!(assignment_id) do
-        nil -> Assignments.get_default_configuration()
-        configuration -> configuration
+      try do
+        Assignments.get_latest_configuration!(assignment_id)
+      rescue
+        _ -> Assignments.get_default_configuration()
       end
 
     render(conn, "index.html",
@@ -30,8 +31,13 @@ defmodule ThesisWeb.AssignmentController do
         "configuration" => configuration
       }) do
     case Thesis.Configuration.validate(configuration) do
-      :ok -> json(conn, "OK")
-      {:error, error} -> conn |> put_status(:bad_request) |> json(%{error: error})
+      :ok ->
+        json(conn, "OK")
+
+      {:errors, errors} ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{errors: errors})
     end
   end
 end

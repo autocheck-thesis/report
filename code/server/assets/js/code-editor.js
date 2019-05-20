@@ -39,9 +39,67 @@ export function create_code_editor(target, form, input, code_validation_output, 
         scrollBeyondLastLine: false
       });
 
-      const configuration_valid_icon_class = "check";
-      const configuration_invalid_icon_class = "exclamation";
-      const configuration_default_text = code_validation_output.querySelector(".text").innerText;
+      function createErrorMarker({ line, description, token, description_suffix }) {
+        const message = description + token;
+        return {
+          startLineNumber: line,
+          endLineNumber: line,
+          startColumn: token
+            ? editor
+                .getModel()
+                .getLineContent(line)
+                .indexOf(token) + 1
+            : undefined,
+          endColumn: 1000,
+          message: message,
+          severity: monaco.MarkerSeverity.Error
+        };
+      }
+
+      function showErrorMessage(errors) {
+        const template = document.getElementById("code_validation_template");
+
+        const message = document.importNode(template.content, true);
+        const container = message.querySelector(".message");
+        container.classList.add("error");
+        const icon = container.querySelector(".icon");
+        icon.classList.add("warning", "sign");
+        const state = container.querySelector(".state");
+        state.textContent = "Invalid";
+        const list = container.querySelector(".list");
+
+        list.innerHTML = errors
+          .map(
+            ({ line, description, token, description_suffix }) =>
+              `<li>Line ${line}: ${description}${token}. ${description_suffix}</li>`
+          )
+          .join("");
+
+        const output = document.getElementById("code_validation_output");
+
+        output.innerHTML = "";
+        output.appendChild(message);
+      }
+
+      function showSuccessMessage() {
+        const template = document.getElementById("code_validation_template");
+
+        const message = document.importNode(template.content, true);
+        const container = message.querySelector(".message");
+        container.classList.add("success");
+        const icon = container.querySelector(".icon");
+        icon.classList.add("check");
+        const state = container.querySelector(".state");
+        state.textContent = "Valid";
+        const list = container.querySelector(".list");
+
+        list.innerHTML = "<li>Everything looks good</li>";
+
+        const output = document.getElementById("code_validation_output");
+
+        output.innerHTML = "";
+        output.appendChild(message);
+      }
 
       const validate_configuration = debounce(() => {
         const form_data = new FormData();
@@ -53,40 +111,18 @@ export function create_code_editor(target, form, input, code_validation_output, 
         })
           .then(res => res.json())
           .then(json => {
-            if (json.error) {
-              const { line, description, token } = json.error;
-              const message = token ? description + token : description;
-
-              monaco.editor.setModelMarkers(editor.getModel(), "errors", [
-                {
-                  startLineNumber: line,
-                  endLineNumber: line,
-                  startColumn: token
-                    ? editor
-                        .getModel()
-                        .getLineContent(line)
-                        .indexOf(token) + 1
-                    : undefined,
-                  endColumn: 1000,
-                  message: message,
-                  severity: monaco.MarkerSeverity.Error
-                }
-              ]);
-
-              const output_text = line ? `Error on line ${line}: ${message}` : message;
-              code_validation_output.querySelector(".text").innerText = output_text;
-              code_validation_output.querySelector(".icon").classList.add(configuration_invalid_icon_class);
-              code_validation_output.querySelector(".icon").classList.remove(configuration_valid_icon_class);
+            if (json.errors) {
+              const markers = json.errors.map(error => createErrorMarker(error));
+              monaco.editor.setModelMarkers(editor.getModel(), "errors", markers);
+              showErrorMessage(json.errors);
             } else {
               monaco.editor.setModelMarkers(editor.getModel(), "errors", []);
-              code_validation_output.querySelector(".text").innerText = configuration_default_text;
-              code_validation_output.querySelector(".text").classList.add("hidden");
-              code_validation_output.querySelector(".icon").classList.add(configuration_valid_icon_class);
-              code_validation_output.querySelector(".icon").classList.remove(configuration_invalid_icon_class);
+              showSuccessMessage();
             }
           });
       }, debounce_timeout);
 
+      validate_configuration();
       editor.onDidChangeModelContent(e => validate_configuration());
 
       form.addEventListener("submit", e => {

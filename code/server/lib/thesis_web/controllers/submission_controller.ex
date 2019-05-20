@@ -93,12 +93,8 @@ defmodule ThesisWeb.SubmissionController do
 
     job =
       Submissions.create_job!(submission, %{
-        image: "jcmmagnusson/coderunner-supervisor:0.1",
-        cmd: """
-        cd coderunner-supervisor
-        mix local.hex --force
-        mix test_suite '#{download_url}'
-        """
+        image: "test:latest",
+        cmd: "mix test_suite #{download_url}"
       })
 
     Thesis.Coderunner.start_event_stream(job)
@@ -114,7 +110,8 @@ defmodule ThesisWeb.SubmissionController do
     configuration = Assignments.get_latest_configuration!(submission.assignment_id)
 
     data =
-      Thesis.Configuration.get_testing_fields(configuration.code)
+      Thesis.Configuration.parse_code(configuration.code)
+      |> Map.from_struct()
       |> Map.put(:files, files)
       |> IO.inspect()
 
