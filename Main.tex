@@ -1,14 +1,14 @@
 \documentclass[12pt,a4paper,twoside,openright]{report}
 \input{include/settings/Settings}
 
-\newcommand{\oneLineTitle}{Design and implementation of an LTI-compatible infrastructure for running automatic checks}
-\newcommand{\multiLineTitle}[1]{Design and implementation of an\\[#1] LTI-compatible infrastructure for\\[#1]running automatic checks}
+\newcommand{\oneLineTitle}{Autocheck}
+\newcommand{\multiLineTitle}[1]{Autocheck}
 
 % The term [#1] indicates that there will be 1 linebreak to split the title into two pieces, first part before \\[#1] and second part after. If you have a very long title and need to split it up into 3 rows, just use \\[#1] multiple times.
 
-\newcommand{\oneLineSubtitle}{A Subtitle that can be Very Much Longer if Necessary}
+\newcommand{\oneLineSubtitle}{Design and implementation of an LTI-compatible infrastructure for running automatic checks}
 
-\begin{document} 
+\begin{document}
 
 \pagenumbering{roman} % Roman numbering (starting with i (one)) until first main chapter
 \input{include/frontmatter/Titlepage}
@@ -42,6 +42,7 @@
 %\setlength{\parskip}{\baselineskip}
 
 \input{include/Introduction}
+\input{include/Goals}
 \input{include/Background}
 \input{include/Implementation}
 \input{include/Results}

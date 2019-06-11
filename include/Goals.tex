@@ -1,0 +1,12 @@
+\chapter{Goals and Challenges}
+\label{goals}
+%Describe your contribution with respect to concepts, theory and technical goals. Ensure that the scientific and engineering 
+%challenges stand out so that the reader can easily recognize that you are planning to solve an advanced problem.
+
+The goal of this project is to design and build a distributed, scalable and secure infrastructure for running automatic checks on a set of predefined assignment criteria, supporting all learning platforms that are LTI-compatible. The criteria will be configured by teachers on a course by course basis within their LMS of choice. It should not require any manual administration of servers and/or code running.
+
+Designing and building the system will be a challenge in its own. Because of the wide range of LMSs that will be able to use this system, no assumptions should be made about the amount of users that will use it. Instead, it should be designed to be modular enough for any institution to configure and scale it to their needs. This will influence the communication interfaces used in the system and the choice of programming language and/or frameworks to use.
+
+When it comes to the users of this system, they can be divided into three groups: students, teachers and administrators. These could also be referred to as the main project stakeholders. The objective is to improve the experience of assignment checking for all of them, but considering the small overlap in feature usage between them, prioritization will be very important. Students' main concern will be a functioning submission system, with file upload and fast feedback. For teachers the most important thing will be assignment configuration, including testing setup. Finally, the administrators will be tasked with setting up, maintaining and improving the system and anything that simplifies these things will be of importance to them.
+
+The biggest challenge in terms on functionality will be the assignment configuration. It should support a modular way of checking assignments, by letting the student submissions flow through a set of modules testing different things. The idea is that these modules should be easy to construct and reuse across different courses. However, if a teacher simply wishes to reuse old test code, that should not be harder than plugging it into a single module, without any additional overhead.

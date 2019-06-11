@@ -1,88 +1,128 @@
 \chapter{Background}
 
+\section{Problem Overview}
+\label{problem} %TODO: Consistent naming system for labels
+%TODO: insert system overview chart/image/diagram/whatever
+Section \ref{goals} briefly introduces the following three main actors of the system: students, teachers and administrators. Their respective functions are relatively self-explanatory, but in this section their role and relation to the system implementation will be further concretized. Additionally, other concepts that are important to the problem domain will be defined.
+
+The main problem can be illustrated by the following high-level goals:
+
+\begin{itemize}
+    \item \textit{Teachers} should, for every \emph{assignment}, be able to define a set of \textit{tests} and \textit{criteria} that \textit{submissions} must satisfy
+    \item \textit{Students} should receive immediate feedback on their submissions
+\end{itemize}
+
+
+
 \section{Learning Tools Interoperability (LTI)}
 %TODO add source https://www.imsglobal.org/activity/learning-tools-interoperability
-Learning Tools Interoperability (LTI) is a standard defined by IMS Global that defines how to connect learning applications with external learning tools~\cite{OleksandrA.2015LearningPlatforms}.
+Learning Tools Interoperability (LTI) is a standard defined by IMS Global that defines how to connect learning applications with external learning tools~\citep{OleksandrA.2015LearningPlatforms}. It is widely adopted, with implementations in Learning Management Systems (LMSs) such as Canvas, Blackboard and Moodle. % source?
 
-The LTI standard defines communication between two parts, the Tool Consumer (TC) and the Tool Provider (TP). The consumer is normally, but not necessarily, a Learning Management System (LMS) and the provider can be any type of service that implements the necessary LTI functionality.
+The LTI standard defines communication between two parts: the Tool Consumer (TC) and the Tool Provider (TP). The consumer is normally, but not necessarily, a LMS and the provider can be any type of service that implements the necessary LTI functionality.
+
+Communication between a TC and a TP begins by the TC sending a HTTP POST request to the TP via a \textit{Launch URL} containing launch parameters; a set of parameters defined by the LTI standard, which provide the TP with consumer specific metadata such as the current consumer user (identity), course, etc.
+
+The initial version of LTI (Basic LTI) lacked any means of letting the TP communicate with the TC. It only allowed unidirectional communication by the launch POST request. This meaning that the TP had no way of letting the TC know the result of a request. Fortunately, version 1.1 of LTI adds the ability to communicate bidirectionally via \textit{outcomes}. Outcomes makes it possible for a TC to send an assignment callback URL via the $lis\_outcome\_service\_url$ parameter. If specified in the launch request, the TP can send a POST request to this endpoint with a result.
+
+Outcomes can be used to send back a grade for an assignment. LTI specifies a grade ranging between 0.0-1.0. % TODO more text here
+
+\subsection{Canvas}
+
+\cite{2019Canvas} is a web-based LMS developed/created/released by Instructure, Inc. They provide a hosted version running on Amazon AWS, but Canvas is also open-source, enabling anyone to set up a self-hosted version. It was developed to be extensible (source?) and provides a comprehensive API as well as LTI support.
+
+The combination of open-source and LTI support makes Canvas an ideal testing ground for LTI application development. However, since the LTI specification is intentionally light-weight to facilitate adoption, Canvas comes with some additional \emph{extension} parameters. These parameters provide more detailed information than what the LTI spec mandates. In order to maintain compatibility with other LMSs, this Canvas-specific data should only be used for optional features and never be expected.
+
+\subsection{Browser security}
+
+A TP is normally embedded in LMSs using an HTML <iframe> element. It works by letting the browser load a resource inside an existing page. Iframes have traditionally been used to display resources from the current host, and not to embed anything remote. When a remote resource is embedded we suddenly have to think about security. For example, the embedded resource should not be able to freely communicate with the parent page. Therefore, modern browsers have some security features regarding embedding content using iframes.
+
+%\subsection{X-Frame-Options \& Content Security Policy}
+
+An interesting thing to consider is whether a remote resource even should be able to be embedded in another page. A website can be susceptible to \cite{2019Clickjacking}, where the parent page tricks a user to perform actions on an invisible page while they think they are clicking buttons and/or links on a legitimate page that is embedded inside an iframe. If the resource should not be able to be embedded (and avoid clickjacking all together) it can respond with either \emph{X-Frame-Options} or \emph{Content Security Policy (CSP)} headers specifying that the browser should not allow it.
+
+Because a TP should be allowed to be embedded inside an iframe by a LMS, it is important to configure the TP server to not respond with too strict X-Frame-Options or CSP headers.
+
+%\subsection{HTTPS}
+
+Another criteria for allowing content inside an iframe element is that the embedded resource is served securely over HTTPS. This can be accomplished by either creating a self-signed certificate and trusting it in your operating system certificate store (\emph{Keychain Access in macOS, Certificate Manager in Windows, etc.}) or having a certificate authority issue one. In both scenarios, the underlying server pointing to the resource, has to be configured to listen for HTTPS connections using the certificate.
+
+A self-signed certificate can easily be generated by running \mintinline{sh}{openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem} in a command line environment.
+
+Nowadays it is also very easy to get a free authority signed certificate using \cite{2019LetsEncrypt}.
 
 \label{ensuring_integrity}
-\subsection{Ensuring integrity and asserting identity: OAuth}
-The LTI standard uses OAuth 1 as a signing mechanism to ensure integrity in communication between consumer and provider~\cite{2019IsRequest}. The setup for this is both parties agreeing on a key and a secret. The key is used by the provider to determine what consumer it is talking to. The secret is used to calculate a signature by encoding and hashing sent parameters, LTI currently only supports HMAC-SHA1). If both signatures, calculated by consumer and provider are equal, the communication has not been tampered with and integrity is ensured.
+\subsection{Ensuring integrity and identity assertion}
+LTI uses the signing mechanism from OAuth 1 to ensure communication integrity between TCs and TPs~\citep{2010OAuth1, 2019IsRequest}. The setup for this is both parties agreeing on a key and a secret. The key is used by the provider to determine what consumer it is talking to. The secret is used to calculate a signature by encoding and hashing sent parameters (see Figure~\ref{fig:oauth_signature_calculation}). If both signatures calculated by consumer and provider are equal, the communication has not been tampered with and integrity is ensured.
+This means that the TP does not need any authentication logic itself; it can create a user session with the sent identity data (user ID, role, etc.) without having verification steps.
 
-In detail, signature calculation is achieved in several steps:
+\begin{figure}[h]
 \begin{enumerate}[itemsep=0pt,topsep=0pt]
-    \item Removing oauth\_signature from the parameters
-    \item URL-encoding the \textit{already encoded} values (causing them to be double encoded)
-    \item Sorting the key/value pairs
-    \item Joining them with \&
-    \item Encoding the values again, yielding a string
-    \item Running HMAC-SHA1 on the string using the secret key
+    \item Remove oauth\_signature from the parameters
+    \item URL-encode the \textit{already encoded} values (causing them to be double encoded)
+    \item Sort the key/value pairs
+    \item Join them with \&
+    \item Encode the values again, yielding a string
+    \item Run HMAC-SHA1 on the string using the secret key
 \end{enumerate}
+\caption{Signature calculation in OAuth 1.}
+\label{fig:oauth_signature_calculation}
+\end{figure}
 
-Communication between consumer and provider begins by the consumer sending a POST request to the provider via a \textit{Launch URL} with launch parameters -- a set of parameters defined by the LTI standard -- that provides the provider with consumer specific metadata, the current consumer user (identity), course, etc.
-
-Because of the ensured integrity, one can trust the sent identity. This means that the provider then does not need any authentication logic itself. It can create a user session backed by a cookie and store the sent identity data such as the user id without having to verify it in the future. % todo rewrite this
-
-\subsection{Grading}
-
-Version 1.1 adds the ability for a provider to send back a grade (0.0-1.0) to the consumer through an endpoint defined in a launch parameter.
-
-To send back the grade, the provider responds with an XML payload with information regarding the grade, the assignment, etc. % todo Fact check this
-
-% TODO Brief introduction to what the External tool a.k.a. Tool Provider is
-
-\subsection{Learning Management System: Canvas}
-
-% Canvas is a cloud-based learning management system that makes teaching and learning easier. rephrase this
-
-Canvas is a web-based learning management system developed/created/released by Instructure, Inc. They provide a hosted version running on Amazon AWS, but Canvas is also open-source enabling anyone to set up a self-hosted version. It was developed to be extensible (source?) and provides an extensive API as well as LTI support.
-
-The combination of open-source and LTI support makes Canvas an ideal testing ground for LTI application development. However, since the LTI specification is intentionally light-weight to facilitate adoption, Canvas comes with some additional "extension" parameters. These parameters provide more detailed information than what the LTI spec mandates. In order to maintain compatibility with other LMSs, this Canvas-specific data should only be used for optional features and never be expected.  
-
-\section{Browser security: X-Frame-Options, HTTPS}
-
-Frame options, SSL, etc
-
-\section{Distributed computation: The actor model}
+\section{Distributed computation}
 
 % todo should we specify that our system needs this, or is it obvious?
 
-Blabla need for concurrent and distributed programming.
-
-Worker threads, the system should be designed to theoretically be able to handle an enormous amount of workers.
+TODO: Need for concurrent and distributed programming. Worker threads, the system should be designed to theoretically be able to handle an enormous amount of workers.
 
 The traditional way of doing concurrent computation is by running multiple threads and have them write to shared memory to communicate. It is certainly fast but has huge costs by being complicated, error-prone because the need for locks, and scale badly because of thread creation. % todo needs clarification, and source
 
-One more efficient way of achieving concurrent computation is utilizing the actor model. % todo source
+% TODO: Maybe talk about multi-process and its drawbacks
 
-One great benefit is that the actor model utilizes message passing, which by running actors on different hosts, gives us distributed computation.
+\subsection{The actor model}
 
-There are multiple languages and/or frameworks that is built around the actor model, three of which are the most widely used: Akka -- a toolkit for running the actor model in the JVM (Java, Scala, ...), Erlang -- an immutable functional programming language with an underlying runtime system that enables communication over networks, making it highly distributed, and Elixir, which actually builds on top of Erlang, but introduces a more conventional syntax with support for macros and polymorphism together with solid tooling such as package management, a default testing suite, code formatting and remote debugging.
+A more efficient way of achieving concurrent computation is by utilizing the actor model. % todo source
+
+One great benefit is that the actor model uses message passing, which by running actors on different hosts gives us distributed computation.
+
+There are multiple languages and frameworks that are built around the actor model, three of which are the most widely used: Akka -- a toolkit for running the actor model in the JVM (Java, Scala, Groovy, ...), Erlang -- an immutable functional programming language with an underlying runtime system that enables communication over networks, making it highly distributed, and Elixir, which builds on top of Erlang, but introduces a more conventional syntax with support for macros and polymorphism together with solid tooling such as package management, a default testing suite, code formatting and remote debugging.
+% TODO: Split split and split.
 
 % todo clarify what the JVM is?
 
 % Why not Akka? What's wrong with the JVM?
 
-Because Erlang and Elixir both run on the Beam VM, which is designed for highly distributed and fault-tolerant systems, they perform equally better than Akka. % todo source
+%Because Erlang and Elixir both run on the BEAM VM, which is designed for highly distributed and fault-tolerant systems, they perform equally better than Akka. % todo source
 
-%\section{Distribution in Erlang}
+\subsection{Other models}
 
-\section{Submission test configuration: DSL}
+There are other models for distributed computation. Most of them are highly theoretical and utilizes shared memory in a distributed setting. Some of the models are used in latency sensitive environments such as in a multi-core CPU and cannot include the overhead that message passing introduces.
 
-Talk about YAML being used wrongly
+Because of system requirements, where the infrastructure has a lot of communication links and should be able to scale without much hassle, this project will utilize the actor model. Or in more exact terms, it will utilize the BEAM VM with Elixir.
 
-For the reasons stated above (TODO :PPP) writing a DSL in Elixir seems good.
+\section{Assignment configuration}
 
-\label{dsl_elixir}
-\subsection{DSL in Elixir}
-All code written in Elixir is represented by a combination of seven different elements. These elements are atoms~\cite{BasicElixir} (a constant whose name is its own value), integers, floats, strings, lists and tuples with two or three elements. The last one, tuples with three elements, is used to represent all other language constructs that are not one of the other six elements. The following call: div(4, 2) would be represented by the tuple: \{:div, meta, [4, 2]\}, where the first element is the function name (as an atom), the second a list containing metadata (e.g. line numbers) and the third a list of parameters. Since module definitions, functions and even blocks of code are represented by this tuple any code that isn't just a one-liner will consist of nested tuples (see listing~\ref{ast_listing}). This type of representation is called a \textit{quoted expression} in Elixir, but is more generally known as an Abstract Syntax Tree (AST).
+% NOTE: This is the exact same text as written in the Goals and Challenges chapter
+Assignments should support a modular method for assessment by letting student submissions flow through a set of modules testing different things. The idea is that these modules should be easy to construct and reuse across different courses. However, if a teacher simply wishes to reuse old test code, that should not be harder than plugging it into a single module, without any additional overhead. For this purpose, an effective method for configuration needs to be chosen or developed.
+
+\subsection{Criticizing YAML}
+
+% Talk about why using text configuration is the right way to go
+
+There are numerous languages that could potentially be suitable for configuring our testing system.
+The most popular one, used in CI systems such as Travis and Circle CI is YAML. However, \cite{JohnsonInYAML} convincingly argues that YAML might be used incorrectly in cases such as CI systems: ``Ouch. Variables. Qualified names. Arguments. This is not structured data. This is programming masquerading as configuration.''
+
+He says that what is good about YAML-based syntax is that it's an external DSL which enforces a specific structure. But that even for this, it does a poor job. Mostly because of the hard work done by the systems are written as shell scripts inlined as strings.
+
+Since YAML is an unsuitable language for structured configurations, we think we can introduce structure by writing our own DSL by leveraging the internal Elixir language parser for our own language flavor.
+
+\subsection{The Elixir language parser}
+All code written in Elixir is represented by a combination of seven different elements. These elements are atoms -- a constant whose name is its own value \citep{2019BasicElixir}, integers, floats, strings, lists and tuples with two or three elements. The last one, tuples with three elements, is used to represent all other language constructs that are not one of the other six elements.
+
+For example, the function call: \mintinline{elixir}{div(4, 2)} would be represented by the tuple: \mintinline{elixir}{{:div, meta, [4, 2]}}
+where the first element is the function name (as an atom), the second a list containing metadata (e.g. line numbers) and the third a list of parameters. Since module definitions, functions and even blocks of code are represented by this tuple any code that isn't just a one-liner will consist of nested tuples (see listing~\ref{lst:ast_example}). This type of representation is called a \textit{quoted expression} in Elixir, but is more generally known as an Abstract Syntax Tree (AST).
 
 Elixir provides a number of functions for converting strings to ASTs and vice versa. Using this built-in functionality to transform code to ASTs serves as a great platform for constructing a DSL. The scope of what is considered valid syntax is also quite wide, giving some freedom when defining the DSL syntax. Additionally, syntax validation is essentially built in, since the conversion functions return descriptive errors when invalid code is passed to it. Handling code that is correct but doesn't adhere to the DSL definitions is facilitated by the metadata contained in all AST nodes, making it possible to provide helpful error messages.  
 
-Something about how our DSL is not compiled or interpreted, i.e. the code won't ever run, it only serves to transform: DSL -> AST -> Config and commands.
-
-\label{ast_listing}
 \begin{listing}
 \begin{minted}{elixir}
 def hello() do
@@ -105,24 +145,28 @@ end
  ]}
 \end{minted}
 \caption{Example of code to AST transformation}
-\label{ast_listing}
+\label{lst:ast_example}
 \end{listing}
 
-DSL? Yaml? Dockerfile?
-Interface till DSL? Textruta?
+% How to tie this to using the parser for our DSL???
 
+\subsection{Vulnerabilities}
+Using Elixir as the base for a DSL comes with one big drawback. The function \mintinline{elixir}{Code.string_to_quoted/2} used to turn code into an AST is not well-suited for user generated input. When this function tokenizes input it creates atoms to represent function names, constants, etc. The problem with atoms is that they are stored in memory and are \textit{never} garbage collected. Letting memory usage grow constantly from user input is an obvious issue, but in reality the system will likely crash from exceeding the maximum number of atoms allowed (1,048,576 by default [cite]) first. It's possible to increase this limit, but doing so only postpones the problem until it actually does become a serious memory leak.
 
+There is a simple way to mitigate this vulnerability, but it comes with a downside. The \mintinline{elixir}{Code.string_to_quoted/2} function takes a list of options as its second parameter and by passing ''\mintinline{elixir}{existing_atoms_only: true}'' it will return an error if anything that would cause a new atom to be created is passed. The problem with this approach is that it will seriously hinder syntax error handling by the DSL. Any code that doesn't adhere to the specification will be caught as an attempt to create a new atom, making it hard to provide helpful error messages while also preventing multiple errors from being caught simultaneously.
 
-\section{Malicious submissions: decompression bombs}
+TODO: Memory leak from legit usage is negligible, protecting from bad actors can be done in other ways.  
+
+\section{Malicious submissions}
+
+The system will be exposed to outside users. These users might not have good intentions, and might try to crash it deliberately or overload it in some way. The submissions with their file uploads is an attack vector and must be secured accordingly.
+
+\subsection{Decompression bombs}
 \label{decompression_bombs}
 
-Students should be able to upload their submissions in archives (eg. zip, tar.gz, ...). The archives are then decompressed on the server to examine the contents. Doing this can mean trouble if a student has created a malicious archive. One way of creating a malicious archive is to create a compression bomb. ``A decompression bomb is a file designed to crash or render useless the program or system reading it, i.e. a denial of service.''~\cite{Bomb.codes}
+Students should be able to upload their submissions in archives (zip, tar.gz, ...). This requires that the archives are decompressed on the server. This opens up to denial of service attacks, where a student can bring down the server by uploading a malicious archive. One way of creating a malicious archive is to create a compression bomb. According to \citet{Cara2019Bomb.codes}, ``a decompression bomb is a file designed to crash or render useless the program or system reading it, i.e. a denial of service''.
 
-\subsection*{Mitigation strategies}
-
-There are different ways of mitigating decompression bomb attacks. A layered approach is seen as the best:
-
-``To effectively mitigate decompression bomb attacks, a layered defense is the best approach. Implementing various checks and restrictions for application and processes will ensure that the attack is stopped before any lasting damage can occur.''~\cite{Bomb.codes}
+There are different ways of mitigating decompression bomb attacks. Again, according to \citet{Cara2019Bomb.codes}, ``a layered defense is the best approach. Implementing various checks and restrictions for application and processes will ensure that the attack is stopped before any lasting damage can occur.''. We present three layered defense layers:
 
 \subsubsection*{Defense layer 1}
 
@@ -137,21 +181,27 @@ Limit the resources used by the process responsible to decompress the archive. T
 
 Restrict the total decompressed file size.
 
-\section{Application containers: Docker}
+\section{Application containers}
 
-% Small introduction to Docker
+There are many different container solutions such as Rkt, LXD and Docker. Docker being the most popular solution. Being the most popular solution, it has the greatest amount of third-party resources such as libraries and guides.
+% Source on docker being the most popular
 
-There are lots of container techniques, one is Docker, which is the most popular solution. % todo fix this sentence
+To summarize what Docker is, \cite{2019ABeginners} describes Docker as ``a tool that allows developers, sys-admins etc. to easily deploy their applications in a sandbox (called containers) to run on the host operating system i.e. Linux.''
 
-''Docker is a tool that allows developers, sys-admins etc. to easily deploy their applications in a sandbox (called containers) to run on the host operating system i.e. Linux. The key benefit of Docker is that it allows users to package an application with all of its dependencies into a standardized unit for software development. Unlike virtual machines, containers do not have the high overhead and hence enable more efficient usage of the underlying system and resources.''~\cite{2019ABeginners}
+Docker allows users to package applications and their dependencies into an image. Docker can then run this image as a container. And according to \cite{2019ABeginners}, ``unlike virtual machines, containers do not have the high overhead and hence enable more efficient usage of the underlying system and resources.''
 
 % https://docker-curriculum.com/
 
-Docker can be controlled remotely over HTTP via its Docker Engine API~\footnote{https://docs.docker.com/engine/api/latest/}. The API covers the full functionality of Docker, allowing developers to build, create and run Docker containers on a remote Docker host. 
+What makes Docker interesting in this project is how Docker can be controlled remotely over HTTP via the \emph{Docker Engine API~\footnote{https://docs.docker.com/engine/api/latest/}}. The Engine API covers the full functionality of regular Docker, allowing developers to build, create and run Docker containers on a remote Docker host. 
 
 It is possible to query both running and stopped containers for information. This is useful to for example determine the exit code of a container process. There is also support for \textit{streaming} various information, such as the standard input, output and error streams from a process in a running container. This allows developers to follow the progress of the running process.
 
-\section{Streaming workers' output}
+We intend to utilize both the streaming of information and sandboxing capibilities when running automatic checks.
 
-Back pressure, buffers etc.
+% TODO: talk about this being our line of defence
+
+%Maybe move to implementation
+%\section{Streaming workers' output}
+
+%Back pressure, buffers etc.
 

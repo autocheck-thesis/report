@@ -2,13 +2,21 @@
 
 Brief introduction...
 
+\section{Language choice}
+
+
+
+\section{Infrastructure design}
+
+Picture of the system
+
 \section{Phoenix}
 
-Because of the choice of using Elixir, we had the opportunity to use the widely popular web framework Phoenix~\cite{Phoenix}. It is the \textit{de facto} standard Elixir library for developing websites. It is built upon simple constructs and does not have many moving parts. It is extensible using plugs -- a kind of per-connection middleware. Plugs are configured to be run on specific routes and they are used to handle everything from header verification and authentication to file uploads.
+Because of the choice of using Elixir, we had the opportunity to use the widely popular web development framework \cite{2018Phoenix}. It is the \emph{de facto} standard Elixir library for website development. It is built upon simple constructs and does not have many moving parts. It is extensible using plugs, a kind of per-connection middleware, which are are configured to be run on specific routes. They are the things doing the heavy lifting, by taking care of everything from header verification and authentication to file uploads.
 
 \subsection{Verifying LTI launch requests}
 
-We must verify LTI launch requests as described in section \ref{ensuring_integrity}. To achieve this we found the open source plug 'plug\_lti'. The library had the required functionality we wanted but was erroneously implemented by presuming that the sent parameters were encoded as 'x-www-form-urlencoded', causing any space character to be encoded as a plus symbol. This caused the OAuth signature to be invalid, making every attempt at launching our LTI application fail. We fixed this by forking the library and replacing the encoding function, and using said fork in our Phoenix project.
+As described in section \ref{ensuring_integrity}, LTI launch requests must be verified using OAuth 1. An open source library \emph{plug\_lti} is an implementation in Elixir that has the required functionality for this, but it is rather buggy. It is erroneously implemented, presuming that the sent parameters are encoded as \emph{x-www-form-urlencoded} (causing any space character to be encoded as a plus symbol). This causes the OAuth signature to be invalid, making every attempt at launching an LTI application fail. This was fixed by forking the library and replacing the encoding function. By the looks of it, the library is not maintained and no effort has been made to get any changes merged upstream.
 
 As the library is implemented as a plug, it can be used in any context where plugs are supported in Phoenix -- both in router scopes and directly in controllers. We use it directly in our index controller, which acts as our LTI entrypoint (see plug directive in Listing \ref{pluglti_listing}). The launch action in the controller is then responsible to redirect the user to the appropriate route according to launch parameters that we now can trust because of the verification, such as the user role or the assignment id.
 
@@ -18,29 +26,33 @@ As the library is implemented as a plug, it can be used in any context where plu
     \label{pluglti_listing}
 \end{listing}
 
-\section{Assignment creation}
+\section{Assignments}
 
-Assignments are created upon receiving an LTI launch request. Since we can trust any data sent in the request, we use the sent ext\_lti\_assignment\_id as our assignment id (see Listing~\ref{pluglti_listing}). Every assignment is unique and have their specific requirements, tests to run, file formats, etc. Because of this, every assignment has their own unique configuration.
+Assignments are created upon receiving an LTI launch request. Since we can trust any data sent in the request, we use the sent $ext\_lti\_assignment\_id$ as our assignment IDs (see Listing~\ref{pluglti_listing}). Every assignment is unique and have their specific requirements, tests to run, file formats, etc. Because of this, every assignment has their own unique configuration.
 
 \subsection{Configuration}
-One of the stated goals of this project was to lower the barrier of entry for teachers who want to set up automatic assignment testing for their courses. A key aspect to achieve this is test configuration. In order to decrease the amount of boilerplate written and facilitate a robust testing flow, we decided to design our own DSL. The intention was to create a language tailored specifically for this task, and implemented in Elixir, as described in Section \ref{dsl_elixir}.
+One of the stated goals of this project was to lower the barrier of entry for teachers who want to set up automatic assignment testing for their courses. A key aspect to achieve this is test configuration. In order to decrease the amount of boilerplate written and facilitate a robust testing flow, we decided to design our own DSL. The intention was to create a language tailored specifically for this task, and implemented in Elixir.
 
-Listing \ref{dsl_listing} showcases an example configuration defined with our DSL. All configurations consist of two different types of constructs, fields and steps. Fields, like \textit{@environment} and \textit{@require\_files}, are prefixed by an @-sign and define ''things'' that has to be true for the assignment, in this case environment configuration and file validation. Steps define the different stages of testing and are transformed into command line instructions that will be executed in the order they are specified.  
+% Something about how our DSL is not compiled or interpreted, i.e. the code won't ever run, it only serves to transform: DSL -> AST -> Config and commands.
+
+\subsection{DSL}
+Listing \ref{lst:dsl_example} showcases an example configuration defined with our DSL. All configurations consist of two different types of constructs, fields and steps. Fields, like \mintinline{elixir}{@env}, \mintinline{elixir}{@required_files} and \mintinline{elixir}{@allowed_file_extensions} are prefixed by an @-sign and define properties that has to be true for the assignment, in this case environment configuration and file validation. Steps define the different stages of testing and are transformed into command line instructions that will be executed in the order they are specified.
 
 \begin{listing}
 \begin{minted}{elixir}
-@environment "elixir",
+@env "elixir",
 	version: "1.2.2",
 	otp_release: "18.2.1"
 
-@require_files "hello.exs", "dependency.js"
+@required_files "hello.exs", "dependency.js"
+@allowed_file_extensions ".zip", ".tar.gz"
 
 step "check grammar" do
 	grammar_check
 end
 
 step "exit code test" do
-	command "exit 1", ignore_exit_code: true
+	run "exit 1", ignore_exit_code: true
 end
 
 step "format all code" do
@@ -49,10 +61,19 @@ step "format all code" do
 end
 \end{minted}
 \caption{Example DSL configuration.}
-\label{dsl_listing}
+\label{lst:dsl_example}
 \end{listing}
 
-Configuring an assignment should be easy for teachers. To decrease the trial and error needed to write a correct configuration, we added \emph{live validation} to the configuration editor. We did this by exposing the parser in the assignment controller (see Listing ~\ref{lst:configuration_validation_listing}) and showing the results directly in the editor (see screenshot in Figure~\ref{fig:editor_screenshot}). The parser is executed in an Elixir Task, which spawns a function in a new process. We also set a time limit on the parser mitigating denial of service attacks against the parser.
+
+The parser is executed in an Elixir Task, which spawns a function in a new process. We also set a time limit on the parser mitigating denial of service attacks against the parser (see Listing~\ref{lst:configuration_parser}).
+
+\begin{listing}
+    \inputminted[firstline=14,lastline=24]{elixir}{code/server/lib/thesis/configuration.ex}
+    \caption{Excerpt of \textbf{configuration.ex}. Configuration validation with a time limit.}
+    \label{lst:configuration_parser}
+\end{listing}
+
+To decrease the trial and error needed to write a correct configuration, we added \emph{live validation} to the configuration editor. We did this by exposing the parser in the assignment controller (see Listing ~\ref{lst:configuration_validation_listing}) and showing the results directly in the editor (see screenshot in Figure~\ref{fig:editor_screenshot}).
 
 \begin{listing}
     \inputminted[firstline=29,lastline=36]{elixir}{code/server/lib/thesis_web/controllers/assignment_controller.ex}
@@ -67,7 +88,14 @@ Configuring an assignment should be easy for teachers. To decrease the trial and
     \label{fig:editor_screenshot}
 \end{figure}
 
-% todo should we talk about how we updated the plug? Is it even interesting?
+\subsection{Environments}
+The only requirement for a valid configuration is that it contains an \mintinline{elixir}{@env} field. An environment defines two things, what Docker image to use for the test suite and a set of functions for use in the configuration. These functions build upon a few default functions, like \mintinline{elixir}{run} and \mintinline{elixir}{print}, that are available in all environments. In Listing \ref{lst:dsl_example} the function \mintinline{elixir}{format_code} is implemented internally by the environment as \mintinline{elixir}{run "mix formatter ./**/*.{ex,exs}"}. This is a simple example that illustrates the idea behind environments, namely to simplify testing configuration by providing shorthands for common testing flows and language constructs.
+
+% TODO: People might think that Teachers must specify what docker image to use, this is not the case
+% Do a proper explanation of that an environment is, but also include the 'custom' option
+
+\subsection{Test results}
+% Write about how configs should be able to specify if failing steps, or part of steps, should generate a warning or an error (or neither, just do a thing and ignore the result). This is not implemented yet tho, so maybe postpone this part. 
 
 \section{Student submissions}
 
@@ -85,11 +113,13 @@ The files can either be stored directly on disk, or indirectly in the database w
 
 Because of the scope of the project, we decide to store the submissions in the database. In a production environment, we would recommend using a blob storage service such as the ones mentioned above.
 
-\subsubsection*{Decompressing uploaded archives}
+\subsection*{Decompressing uploaded archives}
 
 As the submissions are most likely uploaded in archives, we have to decompress them on our server. This comes with some risks (see Section~\ref{decompression_bombs}). We implement the necessary defense layers in the following ways:
 
 First, we limit the upload size to 550 MB in our endpoint (see Listing ~\ref{lst:parsers_upload_limit}). We then check the file format in our submission controller (see Listing ~\ref{lst:upload_file_format_check}).
+
+% TODO: 550 -> 500 and justify it
 
 If the file format check yields us an archive, we decompress it in a new process and limit memory by setting the process flag \emph{max\_heap\_size} to 2~600~000 words and limit decompression time to 60 seconds by having a \emph{receive timeout} (see Listing~\ref{lst:decompression_limit}).
 
@@ -111,7 +141,11 @@ If the file format check yields us an archive, we decompress it in a new process
     \label{lst:decompression_limit}
 \end{listing}
 
-\subsubsection*{Access control}
+\subsection{File diffing}
+
+\subsection{Distributing jobs}
+
+\subsection*{Access control}
 
 % todo better wording
 Having the files publicly available to the Internet would not be good. This requires some kind of access control. We thought of a few different ways of handling this.
@@ -122,10 +156,18 @@ The other way is to restrict access to the submission files by requiring an auth
 
 If a blob storage service is used, it can most likely be configured to only allow access to clients providing the authentication token.
 
-\newpage
-\section{Deployment}
+\subsection{Anti-cheating}
 
-When deploying our project for production, we must change couple of things. Even though there are deployment infrastructure such as Heroku~\cite{CloudHeroku} or Dokku~\cite{DokkuSeen}, which automatically figures out the build environment, we are required to set up three things in the build process:
+\section{Frontend}
+
+TODO: Display the pages we have and the normal page flow.
+% Or should we just show off the pages in their specific category? Like submission page screenshots in the submission section in this chapter.
+
+\section{LTI-launcher}
+
+\section{Deploying}
+
+When deploying our project for production, we must change couple of things. Even though there are deployment infrastructure such as Heroku\footnote{\url{https://www.heroku.com/}} or Dokku\footnote{\url{http://dokku.viewdocs.io/dokku/}}, which automatically figures out the build environment, we are required to set up three things in the build process:
 
 \begin{enumerate}
     \item Handle the application secrets through environment variables
@@ -145,5 +187,5 @@ You are able to hard-code secrets in production too, but it comes with risks suc
     \label{configure_env_variables}
 \end{listing}
 
-We are also able to build deployment artifacts using Distillery~\cite{HomeDocumentation}.
+We are also able to build deployment artifacts using Distillery~\footnote{\url{https://hexdocs.pm/distillery/home.html}}, which is a tool to package Elixir applications.
 
