@@ -17,8 +17,7 @@ Brief introduction...
 
 Figure \ref{fig:infrastructure_design} showcases the different parts that make up the Autcheck system. On the highest level it contains four separate parts: a web server, a database, coderunner workers and a remote docker instance.
 
-The web server, as might be expected, handles all external communication and saves any data and state in the database. The one thing it is not responsible for is running tests. When a student makes a submission it is first checked against the assignment's criteria and if it passes it is placed in a queue. The submission is then picked up by a ''coderunner worker''. The role of this this worker is to oversee the testing process by communicating with the remote docker host. It first starts a supervi 
-
+The web server, as might be expected, handles all external communication and saves any data and state in the database. The one thing it is not responsible for is running tests. When a student makes a submission it is first checked against the assignment's criteria and if it passes it is placed in a queue. The submission is then picked up by a ''coderunner worker''. The role of this this worker is to oversee the testing process by communicating with the remote docker host. It first starts a supervisor container lkmmk
 
 \section{Phoenix}
 
