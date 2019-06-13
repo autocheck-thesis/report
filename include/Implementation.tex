@@ -15,6 +15,11 @@ Brief introduction...
     \label{fig:infrastructure_design}
 \end{figure}
 
+Figure \ref{fig:infrastructure_design} showcases the different parts that make up the Autcheck system. On the highest level it contains four separate parts: a web server, a database, coderunner workers and a remote docker instance.
+
+The web server, as might be expected, handles all external communication and saves any data and state in the database. The one thing it is not responsible for is running tests. When a student makes a submission it is first checked against the assignment's criteria and if it passes it is placed in a queue. The submission is then picked up by a ''coderunner worker''. The role of this this worker is to oversee the testing process by communicating with the remote docker host. It first starts a supervi 
+
+
 \section{Phoenix}
 
 Because of the choice of using Elixir, we had the opportunity to use the widely popular web development framework \cite{2018Phoenix}. It is the \emph{de facto} standard Elixir library for website development. It is built upon simple constructs and does not have many moving parts. It is extensible using plugs, a kind of per-connection middleware, which are are configured to be run on specific routes. They are the things doing the heavy lifting, by taking care of everything from header verification and authentication to file uploads.
@@ -41,7 +46,7 @@ One of the stated goals of this project was to lower the barrier of entry for te
 % Something about how our DSL is not compiled or interpreted, i.e. the code won't ever run, it only serves to transform: DSL -> AST -> Config and commands.
 
 \subsection{DSL}
-Listing \ref{lst:dsl_example} showcases an example configuration defined with our DSL. All configurations consist of two different types of constructs, fields and steps. Fields, like \mintinline{elixir}{@env}, \mintinline{elixir}{@required_files} and \mintinline{elixir}{@allowed_file_extensions} are prefixed by an @-sign and define properties that has to be true for the assignment, in this case environment configuration and file validation. Steps define the different stages of testing and are transformed into command line instructions that will be executed in the order they are specified.
+Listing \ref{lst:dsl_example} showcases an example configuration defined with our DSL. All configurations consist of two different types of constructs, fields and steps. Fields, like \mintinline{elixir}{@env}, \mintinline{elixir}{@required_files} and \mintinline{elixir}{@allowed_file_extensions} are prefixed by an @-sign and define the criteria that has to be true for the assignment, in this case environment configuration and file validation. Steps define the different stages of testing and are transformed into command line instructions that will be executed in the order they are specified.
 
 \begin{listing}
 \begin{minted}{elixir}
@@ -122,7 +127,7 @@ Because of the scope of the project, we decide to store the submissions in the d
 
 As the submissions are most likely uploaded in archives, we have to decompress them on our server. This comes with some risks (see Section~\ref{decompression_bombs}). We implement the necessary defense layers in the following ways:
 
-First, we limit the upload size to 550 MB in our endpoint (see Listing ~\ref{lst:parsers_upload_limit}). We then check the file format in our submission controller (see Listing ~\ref{lst:upload_file_format_check}).
+First, we limit the upload size to a reasonable 500 MB in our endpoint (see Listing ~\ref{lst:parsers_upload_limit}). We then check the file format in our submission controller (see Listing ~\ref{lst:upload_file_format_check}).
 
 % TODO: 550 -> 500 and justify it
 
