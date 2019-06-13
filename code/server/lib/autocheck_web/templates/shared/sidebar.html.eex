@@ -1,0 +1,5 @@
+<div class="four wide column">
+  <div class="ui vertical pointing fluid menu">
+    <%= render_many(@items, SharedView, "sidebar_item.html", Map.put(assigns, :as, :item)) %>
+  </div>
+</div>

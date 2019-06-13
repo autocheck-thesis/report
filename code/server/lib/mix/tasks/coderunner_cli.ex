@@ -1,8 +1,8 @@
 defmodule Mix.Tasks.Coderunner do
   use Mix.Task
 
-  alias Thesis.Submissions.Job
-  alias Thesis.Configuration
+  alias Autocheck.Submissions.Job
+  alias Autocheck.Configuration
 
   @shortdoc "Test job locally"
   def run(args) do
@@ -25,17 +25,14 @@ defmodule Mix.Tasks.Coderunner do
 
     # IO.inspect(configuration)
 
-    %{image: image} = configuration
+    %{image: _image} = configuration
 
     job = %Job{
-      id: :crypto.strong_rand_bytes(32) |> Base.url_encode64() |> binary_part(0, 32),
-      image: "test:latest",
-      cmd: """
-      mix test_suite 'http://hostmachine.docker:4000/submission/download/d5fb349c-e4bb-4e2d-9905-646e439dc9a1'
-      """
+      id: Ecto.UUID.autogenerate(),
+      download_token: ""
     }
 
-    Thesis.Coderunner.run!(job, &log_event/2)
+    Autocheck.Coderunner.run!(job, &log_event/2)
   end
 
   def log_event(%Job{} = _job, event) do

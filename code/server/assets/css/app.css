@@ -22,12 +22,13 @@ pre {
   max-height: 480px;
   font-size: var(--pre-file-size);
   line-height: var(--pre-line-height);
+  word-break: break-all;
 }
 
 pre code div {
   padding: 0 0.5rem 0 1rem;
   position: relative;
-  white-space: normal;
+  white-space: pre-wrap;
 }
 
 pre code div::before {
@@ -133,7 +134,30 @@ pre#log {
   border-radius: 0.28571429rem;
 }
 
-.file pre.segment {
+pre.file {
   font-size: var(--pre-file-size);
   line-height: var(--pre-line-height);
+  margin: 0;
+}
+
+form .field label span {
+  color: #767676;
+}
+
+.ui.vertical.menu .item > i.icon {
+  float: left;
+  margin: 0 0.5em 0 0;
+}
+
+.with-actions {
+  display: flex;
+  align-items: center;
+}
+
+.ui.label.job-id {
+  margin-left: 0.5em;
+}
+
+.with-actions .actions {
+  margin-left: auto;
 }

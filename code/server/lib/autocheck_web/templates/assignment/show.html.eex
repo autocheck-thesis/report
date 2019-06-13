@@ -1,0 +1,31 @@
+<div class="ui grid">
+  <%= render(SharedView, "sidebar.html", items: assignment_sidebar_items(@conn, @assignment), request_path: @conn.request_path) %>
+  <div class="ui twelve wide column form">
+    <div class="ui segment">
+      <h4><i class="<%= icon(:configure) %>"></i> Assignment setup</h4>
+      <%= form_for @conn, Routes.assignment_path(@conn, :submit, @assignment.id), [id: "configuration-form"], fn f -> %>
+        <div class="field">
+          <label>Configuration</label>
+          <div id="code-editor"></div>
+        </div>
+        <div class="field" id="code_validation_output"></div>
+        <%= hidden_input(f, :dsl, value: @configuration && @configuration.code || "") %>
+        <div class="field">
+          <%= submit "Save", class: "ui button" %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</div>
+
+<template id="code_validation_template">
+  <div class="ui visible icon message">
+    <i class="icon"></i>
+    <div class="content">
+      <div class="header"><span class="state"></span> configuration</div>
+      <ul class="list">
+        <li>Everything looks good</li>
+      </ul>
+    </div>
+  </div>
+</template>
