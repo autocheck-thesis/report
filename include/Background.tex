@@ -8,31 +8,53 @@ Section \ref{goals} briefly introduces the following three main actors of the sy
 The main problem can be illustrated by the following high-level goals:
 
 \begin{itemize}
-    \item \textit{Teachers} should, for every \emph{assignment}, be able to define a set of \textit{tests} and \textit{criteria} that \textit{submissions} must satisfy
-    \item \textit{Students} should receive immediate feedback on their submissions
+    \item \emph{Teachers} should, for every \emph{assignment}, be able to define a set of \emph{tests} and \emph{criteria} that \emph{submissions} must satisfy
+    \item \emph{Students} should receive immediate feedback on their \emph{submissions}
 \end{itemize}
 
+These two goals are essentially describing the same thing, but expressed from different angles. The essence is the assessment of submitted files, where one party specifies the conditions to check for and the other provides the input to be checked.
 
+% Rewrite..? sounds a bit weird
+The following list expands further on some of the key concepts introduced by the stated goals.
+
+\textbf{Assignment}: This is the highest level of grouping that our system will deal with, and all other things are contained in assignments. In reality, assignments in turn belong to courses, but that's not relevant for the scope of this project.
+
+\textbf{Test/Criterion}: These are defined by teachers, per assignment and applies to all submissions. A criterion is something that has to true before any tests can even be run. For example, requirements on file extensions or names. Tests are anything that will run and perform checks on the submitted files.
+
+\textbf{Teacher}: An umbrella term for anyone involved with teaching. Responsible for configuring a testing setup with the help of built-in conveniences provided by the system. Should receive information about all submissions, be able to review them and set a grade for the assignment.
+
+\textbf{Student}: Anyone participating in who submit files and get feedback on passed or failed tests and criteria. Should be able to make multiple submissions, until one passes all tests and is accepted by a teacher.
+
+\textbf{Submission}: One or multiple files in addition to an optional comment. Consecutive submissions should show differences from the previous one to make it easier to spot changes. Potentially, the submission process should go through two stages: testing and submission. To allow students to iterate on submitted files without bothering teachers, nothing will be sent for review during the testing stage. Only when the student is happy with the outcome of the tests will an actual submission be made.      
+
+\begin{figure}
+    \centering
+    \includegraphics{figure/Infrastructure_overview.pdf}
+    \caption{High-level component overview.}
+    \label{fig:communication_overview}
+\end{figure}
+
+Figure \ref{fig:communication_overview} gives an overview of the different components and how they interact. The users (teachers, students, etc.) authenticates through the LMS, which then sends an LTI launch request to Autocheck, our system. After this initiation process is complete, the user can communicate with both systems independently. However, Canvas normally embeds external tools in an iframe, so to the user it will seem like they're only interacting with a single system.
 
 \section{Learning Tools Interoperability (LTI)}
 %TODO add source https://www.imsglobal.org/activity/learning-tools-interoperability
-Learning Tools Interoperability (LTI) is a standard defined by IMS Global that defines how to connect learning applications with external learning tools~\citep{OleksandrA.2015LearningPlatforms}. It is widely adopted, with implementations in Learning Management Systems (LMSs) such as Canvas, Blackboard and Moodle. % source?
+Learning Tools Interoperability (LTI) is a standard defined by IMS Global that defines how to connect learning applications with external learning tools~\citep{OleksandrA.2015LearningPlatforms}. It is widely adopted, with implementations in Learning Management Systems (LMSs) such as \cite{2008Canvas}, \cite{1997Blackboard} and \cite{2002Moodle}.
 
 The LTI standard defines communication between two parts: the Tool Consumer (TC) and the Tool Provider (TP). The consumer is normally, but not necessarily, a LMS and the provider can be any type of service that implements the necessary LTI functionality.
 
 Communication between a TC and a TP begins by the TC sending a HTTP POST request to the TP via a \textit{Launch URL} containing launch parameters; a set of parameters defined by the LTI standard, which provide the TP with consumer specific metadata such as the current consumer user (identity), course, etc.
 
-The initial version of LTI (Basic LTI) lacked any means of letting the TP communicate with the TC. It only allowed unidirectional communication by the launch POST request. This meaning that the TP had no way of letting the TC know the result of a request. Fortunately, version 1.1 of LTI adds the ability to communicate bidirectionally via \textit{outcomes}. Outcomes makes it possible for a TC to send an assignment callback URL via the $lis\_outcome\_service\_url$ parameter. If specified in the launch request, the TP can send a POST request to this endpoint with a result.
+The initial version of LTI (Basic LTI) lacked any means of letting the TP communicate with the TC. It only allowed unidirectional communication by the launch POST request. This meaning that the TP had no way of letting the TC know the result of a request. Fortunately, version 1.1 of LTI adds the ability to communicate bidirectionally via \textit{outcomes}. Outcomes makes it possible for a TC to send an assignment callback URL via the $lis\_outcome\_service\_url$ parameter. If specified in the launch request, the TP can store this and, at any point in time, send a POST request to this endpoint with a result.
 
 Outcomes can be used to send back a grade for an assignment. LTI specifies a grade ranging between 0.0-1.0. % TODO more text here
 
 \subsection{Canvas}
 
-\cite{2019Canvas} is a web-based LMS developed/created/released by Instructure, Inc. They provide a hosted version running on Amazon AWS, but Canvas is also open-source, enabling anyone to set up a self-hosted version. It was developed to be extensible (source?) and provides a comprehensive API as well as LTI support.
+\cite{2008Canvas} is a web-based LMS developed/created/released by Instructure, Inc. They provide a hosted version running on Amazon AWS, but Canvas is also open-source, enabling anyone to set up a self-hosted version. It was developed to be extensible, providing a comprehensive API as well as LTI support.
 
 The combination of open-source and LTI support makes Canvas an ideal testing ground for LTI application development. However, since the LTI specification is intentionally light-weight to facilitate adoption, Canvas comes with some additional \emph{extension} parameters. These parameters provide more detailed information than what the LTI spec mandates. In order to maintain compatibility with other LMSs, this Canvas-specific data should only be used for optional features and never be expected.
 
-\subsection{Browser security}
+\subsection{Browser Security}
 
 A TP is normally embedded in LMSs using an HTML <iframe> element. It works by letting the browser load a resource inside an existing page. Iframes have traditionally been used to display resources from the current host, and not to embed anything remote. When a remote resource is embedded we suddenly have to think about security. For example, the embedded resource should not be able to freely communicate with the parent page. Therefore, modern browsers have some security features regarding embedding content using iframes.
 
@@ -104,19 +126,120 @@ Because of system requirements, where the infrastructure has a lot of communicat
 % NOTE: This is the exact same text as written in the Goals and Challenges chapter
 Assignments should support a modular method for assessment by letting student submissions flow through a set of modules testing different things. The idea is that these modules should be easy to construct and reuse across different courses. However, if a teacher simply wishes to reuse old test code, that should not be harder than plugging it into a single module, without any additional overhead. For this purpose, an effective method for configuration needs to be chosen or developed.
 
-\subsection{Criticizing YAML}
-
 % Talk about why using text configuration is the right way to go
 
-There are numerous languages that could potentially be suitable for configuring our testing system.
-The most popular one, used in CI systems such as Travis and Circle CI is YAML. However, \cite{JohnsonInYAML} convincingly argues that YAML might be used incorrectly in cases such as CI systems: ``Ouch. Variables. Qualified names. Arguments. This is not structured data. This is programming masquerading as configuration.''
+One desirable approach to make assignment configuration easy for teachers would be to build some kind of graphical interface. This would be a system where a teacher can build the flow a student submission should go trough, with unique configuration capabilities for every step in said flow.
+
+The sheer complexity in a system like that makes it unfeasible; it would require the system to implement building blocks that eventually would end up being a drag-and-drop programming language.
+
+\subsection{Configuration languages}
+
+There are numerous languages that could potentially be suitable for configuring an assignment. Here, JSON, YAML and a custom Domain Specific Language (DSL) is considered.
+
+Structure is important for validation purposes. Both to make it easy to reason about (separate the configuration to smaller blocks, etc) and to remove ambiguity. If, for example, the language has the notion of booleans, it is easier to avoid ambiguous cases where the person configuring the system wants one thing, and the system does something else.
+
+The first consideration, and most popular language, is JSON (example in Figure~\ref{lst:json_example}), which is used everywhere.
+
+TODO: Write what JSON is and where it comes from.
+
+\begin{listing}
+\begin{minted}{json}
+{
+    "assignment_configuration": {
+        "environment": {
+            "java": {
+                "version": 7
+            }
+        },
+        "required_files": ["Main.java"],
+        "steps": [
+            {
+                "name": "Compile",
+                "commands": [
+                    { "type": "format_file", "args": ["Main.java"] },
+                    { "type": "run", "args": ["javac Main.java"] }
+                ]
+            },
+            {
+                "name": "Run java",
+                "commands": [
+                    { "type": "run", "args": ["java Main.java"] }
+                ]
+            }
+        ]
+    }
+}
+\end{minted}
+\caption{Example configuration in JSON.}
+\label{lst:json_example}
+\end{listing}
+
+A JSON document requires a key-value relationship, meaning that a every value specified has to be named by a key (with the exception of arrays), and every key and value has to be enclosed by double quotes, making it quite verbose. But most importantly, it lacks the ability to add comments. There are extensions to JSON such as \cite{2012JSON5}, but it is still pretty verbose, requiring the said key-value relationship, although without double quotes enclosing the keys.
+
+The second consideration, YAML (example in Figure~\ref{lst:yaml_example}), which is most notably used in popular Continuous Integration systems such as Travis and Circle CI. It skips a lot of the verbose elements of JSON and tries to be as human readable as possible. Most importantly, it allows the use of comments.
+
+\begin{listing}
+\begin{minted}{yaml}
+assignment_configuration:
+  environment:
+    java:
+      version: 7
+  required_files: ["Main.java"]
+  steps:
+    # Steps are run in order
+    - 
+      name: "Compile"
+      commands: 
+        - type: run
+          args: ["javac Main.java"]
+        # Custom functionality defined by the environment
+        - type: format_file
+          args: ["Main.java"]
+    -
+      name: "Run java"
+      commands: 
+        - type: run
+          args: ["java Main"]
+\end{minted}
+\caption{Example configuration in YAML.}
+\label{lst:yaml_example}
+\end{listing}
+
+However, \cite{JohnsonInYAML} convincingly argues that YAML might be used incorrectly in cases such as CI systems: ``Ouch. Variables. Qualified names. Arguments. This is not structured data. This is programming masquerading as configuration.''
 
 He says that what is good about YAML-based syntax is that it's an external DSL which enforces a specific structure. But that even for this, it does a poor job. Mostly because of the hard work done by the systems are written as shell scripts inlined as strings.
 
-Since YAML is an unsuitable language for structured configurations, we think we can introduce structure by writing our own DSL by leveraging the internal Elixir language parser for our own language flavor.
+Since YAML does not meet the requirements for structured configurations, a custom DSL is the final consideration (example in Figure~\ref{lst:dsl_example1}). 
+
+TODO: Segue into talking about how we can use the Elixir language parser to construct our own DSL.
+
+%by leveraging the internal Elixir language parser for our own language flavor with the goal of achieving.
+
+\begin{listing}
+\begin{minted}{elixir}
+@env "java",
+  version: 7
+  
+@required_files "Main.java"
+
+# Steps are run in order
+step "Compile" do
+  format_file "Main.java" # Custom functionality defined by the environment
+  run "javac Main.java"
+end
+
+step "Run java" do
+  run "java Main"
+end
+\end{minted}
+\caption{Example configuration in a custom DSL.}
+\label{lst:dsl_example1}
+\end{listing}
 
 \subsection{The Elixir language parser}
 All code written in Elixir is represented by a combination of seven different elements. These elements are atoms -- a constant whose name is its own value \citep{2019BasicElixir}, integers, floats, strings, lists and tuples with two or three elements. The last one, tuples with three elements, is used to represent all other language constructs that are not one of the other six elements.
+
+% TODO: Make a list of the types instead
 
 For example, the function call: \mintinline{elixir}{div(4, 2)} would be represented by the tuple: \mintinline{elixir}{{:div, meta, [4, 2]}}
 where the first element is the function name (as an atom), the second a list containing metadata (e.g. line numbers) and the third a list of parameters. Since module definitions, functions and even blocks of code are represented by this tuple any code that isn't just a one-liner will consist of nested tuples (see listing~\ref{lst:ast_example}). This type of representation is called a \textit{quoted expression} in Elixir, but is more generally known as an Abstract Syntax Tree (AST).
@@ -155,7 +278,7 @@ Using Elixir as the base for a DSL comes with one big drawback. The function \mi
 
 There is a simple way to mitigate this vulnerability, but it comes with a downside. The \mintinline{elixir}{Code.string_to_quoted/2} function takes a list of options as its second parameter and by passing ''\mintinline{elixir}{existing_atoms_only: true}'' it will return an error if anything that would cause a new atom to be created is passed. The problem with this approach is that it will seriously hinder syntax error handling by the DSL. Any code that doesn't adhere to the specification will be caught as an attempt to create a new atom, making it hard to provide helpful error messages while also preventing multiple errors from being caught simultaneously.
 
-TODO: Memory leak from legit usage is negligible, protecting from bad actors can be done in other ways.  
+TODO: New Elixir release candidate actually solves this problem.
 
 \section{Malicious submissions}
 
